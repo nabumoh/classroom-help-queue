@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build artifacts
+.coverage/
+.nyc_output/
+
+# Environment files
+.env
+.env.*
+
+# SAM artifacts
+.aws-sam/
