@@ -2,16 +2,16 @@
 
 This checklist captures the exact CI/CD setup state for the project.
 
-## Teacher Rubric Alignment
+## Project Coverage for Submission
 
-1. AWS working system: Completed
-2. Documented repository: Completed
-3. Clear README: Completed
-4. CI/CD via GitHub Actions: Completed
-5. Domain or subdomain: Completed (subdomain delegated and publicly validated)
-6. HTTPS: Verify ACM cert attached to CloudFront before submission
-7. Monitoring: CloudWatch plan documented and should be demonstrated
-8. Architecture diagram: Completed
+1. Working AWS system (frontend + backend)
+2. Documented GitHub repository
+3. Clear README
+4. CI/CD with GitHub Actions
+5. Domain/subdomain setup
+6. HTTPS with ACM + CloudFront
+7. Monitoring with CloudWatch
+8. Architecture diagram
 
 ## Subdomain Delegation Status
 
@@ -61,7 +61,11 @@ Set these in GitHub repository settings for `nabumoh/classroom-help-queue`.
 - `.github/workflows/backend-deploy.yml`
 - `.github/workflows/frontend-deploy.yml`
 
-Both workflows fail fast when required config is missing.
+Current workflow behavior:
+
+- Uses production-safe defaults for region, deploy role, bucket, and distribution.
+- Still supports repository-level override through GitHub Secrets/Variables.
+- Backend deploy passes `AdminPin` only when a value exists, preventing SAM `--parameter-overrides` format failures.
 
 ## Evidence to Capture for Submission
 

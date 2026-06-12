@@ -57,12 +57,21 @@ jobs:
         working-directory: infra
 
       - name: SAM Deploy
-        run: >-
-          sam deploy
-          --stack-name classroom-help-queue
-          --resolve-s3
-          --capabilities CAPABILITY_IAM
-          --no-confirm-changeset
-          --no-fail-on-empty-changeset
-          --parameter-overrides AdminPin=${{ env.ADMIN_PIN }}
+        run: |
+          set -euo pipefail
+          cmd=(
+            sam deploy
+            --stack-name classroom-help-queue
+            --resolve-s3
+            --capabilities CAPABILITY_IAM
+            --no-confirm-changeset
+            --no-fail-on-empty-changeset
+          )
+
+          # Only pass AdminPin when provided to avoid invalid parameter format.
+          if [[ -n "${ADMIN_PIN:-}" ]]; then
+            cmd+=(--parameter-overrides "AdminPin=${ADMIN_PIN}")
+          fi
+
+          "${cmd[@]}"
         working-directory: infra
