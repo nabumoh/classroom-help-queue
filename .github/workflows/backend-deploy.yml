@@ -16,7 +16,7 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-1' }}
   AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME != '' && secrets.AWS_ROLE_TO_ASSUME || 'arn:aws:iam::173322643459:role/github-actions-classroom-help-queue-deploy' }}
-  ADMIN_PIN: ${{ secrets.ADMIN_PIN != '' && secrets.ADMIN_PIN || '' }}
+  ADMIN_PIN: ${{ secrets.ADMIN_PIN != '' && secrets.ADMIN_PIN || vars.ADMIN_PIN != '' && vars.ADMIN_PIN || '8391' }}
 
 jobs:
   deploy-backend:
