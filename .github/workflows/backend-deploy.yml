@@ -30,20 +30,37 @@ jobs:
         run: npm ci
         working-directory: backend
 
+      - name: Check deploy configuration
+        id: config
+        env:
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          if [[ -n "$AWS_ROLE_TO_ASSUME" && -n "$AWS_REGION" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "AWS deploy config missing. Set AWS_ROLE_TO_ASSUME (secret) and AWS_REGION (variable)."
+          fi
+
       - name: Configure AWS credentials (OIDC)
+        if: ${{ steps.config.outputs.configured == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup SAM CLI
+        if: ${{ steps.config.outputs.configured == 'true' }}
         uses: aws-actions/setup-sam@v2
 
       - name: SAM Build
+        if: ${{ steps.config.outputs.configured == 'true' }}
         run: sam build --template-file template.yaml
         working-directory: infra
 
       - name: SAM Deploy
+        if: ${{ steps.config.outputs.configured == 'true' }}
         run: >-
           sam deploy
           --stack-name classroom-help-queue

@@ -20,14 +20,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check deploy configuration
+        id: config
+        env:
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          if [[ -n "$AWS_ROLE_TO_ASSUME" && -n "$AWS_REGION" && -n "$FRONTEND_BUCKET" && -n "$CLOUDFRONT_DISTRIBUTION_ID" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "AWS deploy config missing. Set AWS_ROLE_TO_ASSUME (secret) and AWS_REGION, FRONTEND_BUCKET, CLOUDFRONT_DISTRIBUTION_ID (variables)."
+          fi
+
       - name: Configure AWS credentials (OIDC)
+        if: ${{ steps.config.outputs.configured == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Upload frontend to S3
+        if: ${{ steps.config.outputs.configured == 'true' }}
         run: aws s3 sync frontend s3://${{ vars.FRONTEND_BUCKET }} --delete
 
       - name: Invalidate CloudFront cache
+        if: ${{ steps.config.outputs.configured == 'true' }}
         run: aws cloudfront create-invalidation --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} --paths '/*'
