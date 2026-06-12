@@ -8,10 +8,58 @@ const refreshBtn = document.getElementById("refresh-btn");
 const adminPinInput = document.getElementById("adminPin");
 
 const statusOptions = ["open", "in_progress", "done"];
+const LOCAL_STORAGE_KEY = "classroom-help-queue:tickets";
+const PLACEHOLDER_API_TOKEN = "replace-with-api-id.execute-api.region.amazonaws.com";
 
 const setFormMessage = (text, isError = false) => {
   formMessage.textContent = text;
   formMessage.className = isError ? "message error" : "message";
+};
+
+const isBackendConfigured = !API_BASE_URL.includes(PLACEHOLDER_API_TOKEN);
+
+const readLocalTickets = () => {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalTickets = (items) => {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+};
+
+const localApi = {
+  list() {
+    return { items: readLocalTickets() };
+  },
+  create(payload) {
+    const tickets = readLocalTickets();
+    const next = {
+      ticketId: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()),
+      studentName: payload.studentName,
+      topic: payload.topic,
+      description: payload.description,
+      urgency: payload.urgency,
+      status: "open",
+      createdAt: new Date().toISOString()
+    };
+    tickets.unshift(next);
+    writeLocalTickets(tickets);
+    return next;
+  },
+  update(ticketId, status) {
+    const tickets = readLocalTickets();
+    const idx = tickets.findIndex((t) => t.ticketId === ticketId);
+    if (idx === -1) {
+      throw new Error("Ticket not found");
+    }
+    tickets[idx] = { ...tickets[idx], status };
+    writeLocalTickets(tickets);
+    return tickets[idx];
+  }
 };
 
 const ticketItem = (ticket) => {
@@ -41,26 +89,52 @@ const ticketItem = (ticket) => {
   return li;
 };
 
+const fetchRemoteJson = async (url, options) => {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    let message = "Request failed";
+    try {
+      const err = await res.json();
+      message = err.message || message;
+    } catch {
+      // Keep default message when response is not JSON.
+    }
+    throw new Error(message);
+  }
+  return res.json();
+};
+
 const fetchTickets = async () => {
   try {
-    const res = await fetch(`${API_BASE_URL}/tickets`);
-    if (!res.ok) {
-      throw new Error("Failed to fetch tickets");
-    }
+    const data = isBackendConfigured
+      ? await fetchRemoteJson(`${API_BASE_URL}/tickets`)
+      : localApi.list();
 
-    const data = await res.json();
     ticketsList.innerHTML = "";
-
     if (!data.items?.length) {
       emptyState.style.display = "block";
+      emptyState.textContent = "No tickets yet.";
       return;
     }
 
     emptyState.style.display = "none";
     data.items.forEach((item) => ticketsList.appendChild(ticketItem(item)));
+
+    if (!isBackendConfigured) {
+      setFormMessage("Running in local mode until backend API is configured.");
+    }
   } catch (error) {
-    emptyState.style.display = "block";
-    emptyState.textContent = error.message;
+    // Fall back to local mode when backend is unreachable.
+    const data = localApi.list();
+    ticketsList.innerHTML = "";
+    if (!data.items?.length) {
+      emptyState.style.display = "block";
+      emptyState.textContent = "No tickets yet.";
+    } else {
+      emptyState.style.display = "none";
+      data.items.forEach((item) => ticketsList.appendChild(ticketItem(item)));
+    }
+    setFormMessage("Backend unreachable. Running in local mode.", true);
   }
 };
 
@@ -76,24 +150,25 @@ form.addEventListener("submit", async (event) => {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/tickets`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || "Failed to create ticket");
+    if (isBackendConfigured) {
+      await fetchRemoteJson(`${API_BASE_URL}/tickets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      setFormMessage("Ticket created successfully.");
+    } else {
+      localApi.create(payload);
+      setFormMessage("Ticket saved locally.");
     }
 
     form.reset();
-    setFormMessage("Ticket created successfully.");
     await fetchTickets();
   } catch (error) {
-    setFormMessage(error.message, true);
+    localApi.create(payload);
+    setFormMessage("Backend unavailable. Ticket saved locally.", true);
+    form.reset();
+    await fetchTickets();
   }
 });
 
@@ -106,32 +181,31 @@ ticketsList.addEventListener("click", async (event) => {
   const ticketId = button.getAttribute("data-update-ticket-id");
   const select = ticketsList.querySelector(`select[data-ticket-id="${ticketId}"]`);
   const status = select?.value;
-
   if (!status) {
     return;
   }
 
-  const headers = { "Content-Type": "application/json" };
-  if (adminPinInput.value.trim()) {
-    headers["x-admin-pin"] = adminPinInput.value.trim();
-  }
-
   try {
-    const res = await fetch(`${API_BASE_URL}/tickets/${ticketId}`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({ status })
-    });
+    if (isBackendConfigured) {
+      const headers = { "Content-Type": "application/json" };
+      if (adminPinInput.value.trim()) {
+        headers["x-admin-pin"] = adminPinInput.value.trim();
+      }
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || "Failed to update status");
+      await fetchRemoteJson(`${API_BASE_URL}/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ status })
+      });
+    } else {
+      localApi.update(ticketId, status);
     }
 
     await fetchTickets();
   } catch (error) {
-    emptyState.style.display = "block";
-    emptyState.textContent = error.message;
+    localApi.update(ticketId, status);
+    await fetchTickets();
+    setFormMessage("Backend unavailable. Status updated locally.", true);
   }
 });
 
