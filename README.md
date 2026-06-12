@@ -24,7 +24,7 @@ Provide a lightweight web app where students can open help tickets, and TAs can 
 - `backend/`: Lambda source code and dependencies.
 - `infra/`: AWS SAM template for API + functions + DynamoDB.
 - `frontend/`: static web app.
-- `docs/`: architecture, monitoring, and team workflow.
+- `docs/`: architecture, monitoring, and deployment checklist.
 - `.github/workflows/`: CI/CD pipelines.
 
 ## API Endpoints
@@ -97,6 +97,15 @@ Monitoring design and alarms are documented in `docs/monitoring.md`.
 
 See `docs/architecture.md`.
 
-## Team Collaboration
+## Teacher Requirements Coverage
 
-Use branch-per-feature workflow and pull requests from each team member account. Details in `docs/team-workflow.md`.
+This project is aligned to the final-project grading requirements:
+
+1. AWS-based working system: backend on API Gateway + Lambda + DynamoDB, frontend on S3 + CloudFront.
+2. Documented GitHub repository: this README and `docs/` documentation.
+3. Clear README: architecture, stack, endpoints, deployment, and monitoring sections are included.
+4. CI/CD with GitHub Actions: backend and frontend deploy workflows in `.github/workflows/`.
+5. Domain or subdomain: configured through Route 53 to CloudFront (see DNS/HTTPS section).
+6. HTTPS: provided through ACM certificate attached to CloudFront.
+7. Monitoring: CloudWatch logs, metrics, alarms, and dashboard plan in `docs/monitoring.md`.
+8. Architecture diagram: provided in `docs/architecture.md`.
